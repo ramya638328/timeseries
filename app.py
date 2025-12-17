@@ -1,49 +1,69 @@
 import streamlit as st
 import pandas as pd
-from scipy.stats import linregress
+import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import linregress
 
-st.title("Student Academic Performance Trend Analyzer")
+st.set_page_config(page_title="Student Academic Performance Trend Analyzer", layout="centered")
+
+st.title("📊 Student Academic Performance Trend Analyzer")
+st.write("Upload an Excel file with columns **Semester** and **Marks**")
 
 # File uploader
-uploaded_file = st.file_uploader("Upload Excel file with columns 'Semester' and 'Marks'", type=["xlsx", "xls"])
+uploaded_file = st.file_uploader(
+    "Upload Excel file (.xlsx or .xls)",
+    type=["xlsx", "xls"],
+    accept_multiple_files=False
+)
 
-if uploaded_file:
-    # Load dataset
-    df = pd.read_excel(uploaded_file)
-    
-    st.subheader("Dataset Preview")
-    st.dataframe(df.head())
+if uploaded_file is not None:
+    try:
+        # Read Excel file
+        df = pd.read_excel(uploaded_file)
 
-    # Check columns
-    if 'Semester' in df.columns and 'Marks' in df.columns:
-        semesters = df['Semester'].values
-        marks = df['Marks'].values
+        st.subheader("Dataset Preview")
+        st.dataframe(df)
 
-        # Compute linear regression
-        slope, intercept, r_value, p_value, std_err = linregress(semesters, marks)
-
-        # Determine trend
-        if slope > 0:
-            trend = "Increasing"
-        elif slope < 0:
-            trend = "Decreasing"
+        # Validate required columns
+        required_cols = {"Semester", "Marks"}
+        if not required_cols.issubset(df.columns):
+            st.error("❌ The uploaded file must contain columns: 'Semester' and 'Marks'")
         else:
-            trend = "Stable"
+            # Sort by Semester (important for trend analysis)
+            df = df.sort_values(by="Semester")
 
-        st.subheader("Trend Analysis")
-        st.write(f"Trend of student academic performance: **{trend}**")
-        st.write(f"Slope: **{slope:.2f}** (positive means improving, negative means declining)")
+            semesters = df["Semester"].values
+            marks = df["Marks"].values
 
-        # Visualization
-        st.subheader("Performance Trend Plot")
-        fig, ax = plt.subplots()
-        ax.plot(semesters, marks, 'o', label='Actual Marks')
-        ax.plot(semesters, intercept + slope*semesters, 'r', label='Trend Line')
-        ax.set_xlabel("Semester")
-        ax.set_ylabel("Marks")
-        ax.set_title("Student Academic Performance Trend")
-        ax.legend()
-        st.pyplot(fig)
-    else:
-        st.error("The uploaded file must contain columns: 'Semester' and 'Marks'.")
+            # Linear regression for trend
+            slope, intercept, r_value, p_value, std_err = linregress(semesters, marks)
+            trend_line = intercept + slope * semesters
+
+            # Trend interpretation
+            if slope > 0:
+                trend_text = "📈 Increasing Performance"
+            elif slope < 0:
+                trend_text = "📉 Decreasing Performance"
+            else:
+                trend_text = "➖ Stable Performance"
+
+            st.subheader("Performance Trend Result")
+            st.success(trend_text)
+
+            st.write(f"**Slope:** {slope:.3f}")
+            st.write(f"**R-squared:** {r_value**2:.3f}")
+
+            # Plot
+            st.subheader("Marks Trend Visualization")
+            fig, ax = plt.subplots()
+            ax.plot(semesters, marks, marker='o', label='Actual Marks')
+            ax.plot(semesters, trend_line, linestyle='--', label='Trend Line')
+            ax.set_xlabel("Semester")
+            ax.set_ylabel("Marks")
+            ax.legend()
+            st.pyplot(fig)
+
+    except Exception as e:
+        st.error(f"⚠️ Error reading file: {e}")
+else:
+    st.info("Please upload an Excel file to analyze student performance.")
